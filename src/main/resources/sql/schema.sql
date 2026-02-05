@@ -89,6 +89,12 @@ create table if not exists sale
     creation_datetime timestamp without time zone
 );
 
+alter table sale
+    add column if not exists id_order int references "order" (id);
+
 alter table "order"
     add column if not exists status  payment_status,
     add column if not exists id_sale int references sale (id);
+
+alter table "order"
+    drop column if exists id_sale;

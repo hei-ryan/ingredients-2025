@@ -25,15 +25,7 @@ public class Main {
 //        Ingredient laitue = dataRetriever.findIngredientById(1);
 //        System.out.println(laitue);
         DataRetriever dataRetriever = new DataRetriever();
-        Order orderOne = dataRetriever.findOrderByReference("ORD001");
-        Order order = new Order();
-        order.setId(3);
-        order.setReference("ORD003");
-        List<DishOrder> dishOrderList = orderOne.getDishOrderList();
-        dishOrderList.getFirst().setQuantity(2);
-        order.setDishOrderList(dishOrderList);
-        order.setStatus(PaymentStatusEnum.PAID);
-        order.setCreationDatetime(now());
-        System.out.println(dataRetriever.saveOrder(order));
+        Sale sale = dataRetriever.createSaleFrom(dataRetriever.findOrderByReference("ORD001"));
+        System.out.println(sale);
     }
 }

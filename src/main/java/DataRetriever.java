@@ -6,6 +6,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import static java.time.Instant.now;
+
 public class DataRetriever {
 
     Order findOrderByReference(String reference) {
@@ -26,6 +28,75 @@ public class DataRetriever {
                 return order;
             }
             throw new RuntimeException("Order not found with reference " + reference);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    boolean findSaleFromOrder(Integer orderId) {
+        String sql = """
+                select id from sale where id_order = ?;
+                """;
+        try (Connection connection = new DBConnection().getConnection();
+             PreparedStatement ps = connection.prepareStatement(sql)) {
+            ps.setInt(1, orderId);
+            try (ResultSet resultSet = ps.executeQuery()) {
+                return resultSet.next();
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    Sale createSaleFrom(Order order) {
+        if (!order.getStatus().equals(PaymentStatusEnum.PAID)) {
+            throw new RuntimeException("Order must be paid to create a sale");
+        }
+        if (findSaleFromOrder(order.getId())) {
+            throw new RuntimeException("Order already associated with sale");
+        }
+        String insertSaleSql = """
+                insert into sale (id, id_order, creation_datetime)
+                values (?, ?, ?)
+                returning id;""";
+        DBConnection dbConnection = new DBConnection();
+        Integer saleIdentifier;
+        try (Connection connection = dbConnection.getConnection();
+             PreparedStatement ps = connection.prepareStatement(insertSaleSql)) {
+            int nextSerialValue = getNextSerialValue(connection, "sale", "id");
+            ps.setInt(1, nextSerialValue);
+            ps.setInt(2, order.getId());
+            ps.setTimestamp(3, Timestamp.from(now()));
+            try (ResultSet resultSet = ps.executeQuery()) {
+                if (resultSet.next()) {
+                    saleIdentifier = resultSet.getInt("id");
+                } else {
+                    throw new RuntimeException("Sale not created");
+                }
+            }
+            return findSaleById(saleIdentifier);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private Sale findSaleById(Integer saleIdentifier) {
+        String selectSaleByIdSql = """
+                select id, id_order, creation_datetime from sale where id = ?;
+                """;
+        try (Connection connection = new DBConnection().getConnection();
+             PreparedStatement ps = connection.prepareStatement(selectSaleByIdSql)) {
+            ps.setInt(1, saleIdentifier);
+            try (ResultSet resultSet = ps.executeQuery()) {
+                if (resultSet.next()) {
+                    Sale sale = new Sale();
+                    sale.setId(resultSet.getInt("id"));
+                    sale.setCreationDatetime(resultSet.getTimestamp("creation_datetime").toInstant());
+                    return sale;
+                }
+                throw new RuntimeException("Sale not found with id " + saleIdentifier);
+
+            }
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
@@ -512,7 +583,7 @@ public class DataRetriever {
 
     private void updateSequenceNextValue(Connection conn, String tableName, String columnName, String sequenceName) throws SQLException {
         String setValSql = String.format(
-                "SELECT setval('%s', (SELECT COALESCE(MAX(%s), 0) FROM %s))",
+                "SELECT setval('%s', (SELECT COALESCE(MAX(%s), 1) FROM %s))",
                 sequenceName, columnName, tableName
         );
 
