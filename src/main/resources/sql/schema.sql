@@ -79,4 +79,16 @@ create table if not exists dish_order
 );
 
 alter table "order"
-    add constraint  order_reference_unique unique (reference);
+    add constraint order_reference_unique unique (reference);
+
+
+create table if not exists "restaurant_table"
+(
+    id     serial primary key,
+    number int not null unique
+);
+
+alter table "order"
+    add column if not exists id_restaurant_table    int references "restaurant_table" (id),
+    add column if not exists installation_date_time timestamp without time zone,
+    add column if not exists departure_date_time    timestamp without time zone;
