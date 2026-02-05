@@ -26,19 +26,14 @@ public class Main {
 //        System.out.println(laitue);
         DataRetriever dataRetriever = new DataRetriever();
         Order orderOne = dataRetriever.findOrderByReference("ORD001");
-
-        Order newOrder = new Order();
-        newOrder.setId(2);
-        newOrder.setReference("ORD002");
+        Order order = new Order();
+        order.setId(3);
+        order.setReference("ORD003");
         List<DishOrder> dishOrderList = orderOne.getDishOrderList();
-        DishOrder newDishOrder = new DishOrder();
-        newDishOrder.setDish(dataRetriever.findDishById(2));
-        newDishOrder.setQuantity(1);
-        dishOrderList.add(newDishOrder);
-        newOrder.setDishOrderList(dishOrderList);
-        newOrder.setCreationDatetime(now());
-        Order savedOrder = dataRetriever.saveOrder(newOrder);
-        System.out.println(savedOrder);
-
+        dishOrderList.getFirst().setQuantity(2);
+        order.setDishOrderList(dishOrderList);
+        order.setStatus(PaymentStatusEnum.PAID);
+        order.setCreationDatetime(now());
+        System.out.println(dataRetriever.saveOrder(order));
     }
 }

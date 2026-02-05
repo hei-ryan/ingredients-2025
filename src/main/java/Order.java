@@ -7,6 +7,7 @@ public class Order {
     private String reference;
     private Instant creationDatetime;
     private List<DishOrder> dishOrderList;
+    private PaymentStatusEnum status;
 
     public Integer getId() {
         return id;
@@ -43,17 +44,18 @@ public class Order {
     @Override
     public String toString() {
         return "Order{" +
-                "id=" + id +
-                "totalAmountWithoutVat=" + getTotalAmountWithoutVat() +
-                "totalAmountWithVat=" + getTotalAmountWithVat() +
+                "id=" + id + "," +
+                "totalAmountWithoutVat=" + getTotalAmountWithoutVat() + "," +
+                "totalAmountWithVat=" + getTotalAmountWithVat() + "," +
                 ", reference='" + reference + '\'' +
+                ", status='" + getStatus() + '\'' +
                 ", creationDatetime=" + creationDatetime +
                 ", dishOrderList=" + dishOrderList +
                 '}';
     }
 
     Double getTotalAmountWithoutVat() {
-        if(dishOrderList == null) return null;
+        if (dishOrderList == null) return null;
         double amount = 0.0;
         for (DishOrder dishOrder : dishOrderList) {
             amount = amount + dishOrder.getQuantity() * dishOrder.getDish().getPrice();
@@ -75,5 +77,13 @@ public class Order {
     @Override
     public int hashCode() {
         return Objects.hash(id, reference, creationDatetime, dishOrderList);
+    }
+
+    public PaymentStatusEnum getStatus() {
+        return status;
+    }
+
+    public void setStatus(PaymentStatusEnum status) {
+        this.status = status;
     }
 }
