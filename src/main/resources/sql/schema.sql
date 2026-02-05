@@ -79,4 +79,16 @@ create table if not exists dish_order
 );
 
 alter table "order"
-    add constraint  order_reference_unique unique (reference);
+    add constraint order_reference_unique unique (reference);
+
+create type payment_status as enum ('PAID', 'UNPAID');
+
+create table if not exists sale
+(
+    id                serial primary key,
+    creation_datetime timestamp without time zone
+);
+
+alter table "order"
+    add column if not exists status  payment_status,
+    add column if not exists id_sale int references sale (id);
