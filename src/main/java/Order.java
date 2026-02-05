@@ -7,6 +7,7 @@ public class Order {
     private String reference;
     private Instant creationDatetime;
     private List<DishOrder> dishOrderList;
+    private TableOrder tableOrder;
 
     public Integer getId() {
         return id;
@@ -75,5 +76,13 @@ public class Order {
     @Override
     public int hashCode() {
         return Objects.hash(id, reference, creationDatetime, dishOrderList);
+    }
+
+    public TableOrder getTableOrder() {
+        return tableOrder;
+    }
+
+    public void setTableOrder(TableOrder tableOrder) {
+        this.tableOrder = tableOrder;
     }
 }

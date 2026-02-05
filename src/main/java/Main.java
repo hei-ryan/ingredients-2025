@@ -37,6 +37,10 @@ public class Main {
         dishOrderList.add(newDishOrder);
         newOrder.setDishOrderList(dishOrderList);
         newOrder.setCreationDatetime(now());
+
+        TableOrder tableOrder = new TableOrder();
+        tableOrder.setTable(dataRetriever.findTableById(1));
+        newOrder.setTableOrder(tableOrder);
         Order savedOrder = dataRetriever.saveOrder(newOrder);
         System.out.println(savedOrder);
 
