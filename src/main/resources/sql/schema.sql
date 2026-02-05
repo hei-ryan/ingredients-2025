@@ -79,4 +79,12 @@ create table if not exists dish_order
 );
 
 alter table "order"
-    add constraint  order_reference_unique unique (reference);
+    add constraint order_reference_unique unique (reference);
+
+create type order_type as enum ('EAT_IN', 'TAKE_AWAY');
+
+create type order_status as enum ('CREATED', 'READY', 'DELIVERED');
+
+alter table "order"
+    add column if not exists order_type   order_type,
+    add column if not exists order_status order_status;
