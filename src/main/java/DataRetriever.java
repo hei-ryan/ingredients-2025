@@ -1,6 +1,7 @@
 import org.postgresql.util.PSQLException;
 
 import java.sql.*;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -54,7 +55,7 @@ public class DataRetriever {
                 ps.setTimestamp(3, Timestamp.from(order.getCreationDatetime()));
                 try (ResultSet rs = ps.executeQuery()) {
                     if (rs.next()) {
-                    orderId = rs.getInt(1);
+                        orderId = rs.getInt(1);
                     } else {
                         orderId = order.getId() != null ? order.getId() : nextSerialValue;
                     }
@@ -67,25 +68,55 @@ public class DataRetriever {
             conn.commit();
             return findOrderByReference(order.getReference());
         } catch (PSQLException e) {
-            if(e.getMessage().contains("duplicate key value violates unique constraint \"order_reference_unique\"")) {
+            if (e.getMessage().contains("duplicate key value violates unique constraint \"order_reference_unique\"")) {
                 throw new RuntimeException("Order already exists with reference " + order.getReference());
             } else {
                 throw new RuntimeException(e);
             }
-        }
-        catch (SQLException e) {
+        } catch (SQLException e) {
             throw new RuntimeException(e);
         }
     }
 
     private void detachOrders(Connection conn, Integer idOrder) {
-            try (PreparedStatement ps = conn.prepareStatement(
-                    "DELETE FROM dish_order where id_order = ?")) {
-                ps.setInt(1, idOrder);
-                ps.executeUpdate();
-            } catch (SQLException e) {
-                throw new RuntimeException(e);
+        try (PreparedStatement ps = conn.prepareStatement(
+                "DELETE FROM dish_order where id_order = ?")) {
+            ps.setInt(1, idOrder);
+            ps.executeUpdate();
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    StockValue getStockValueAt(Instant t, Integer ingredientId) {
+        DBConnection dbConnection = new DBConnection();
+        try (Connection connection = dbConnection.getConnection();
+             PreparedStatement preparedStatement = connection.prepareStatement(
+                     """
+                             select unit,
+                                    sum(case
+                                            when stock_movement.type = 'IN' then quantity
+                                            when stock_movement.type = 'OUT' then -1 * quantity
+                                            else 0 END) as actual_quantity
+                             from stock_movement
+                             where id_ingredient = ? and unit='KG'
+                             and creation_datetime <= ?
+                             group by unit
+                             """)) {
+            preparedStatement.setInt(1, ingredientId);
+            preparedStatement.setTimestamp(2, Timestamp.from(t));
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                if (resultSet.next()) {
+                    StockValue stockValue = new StockValue();
+                    stockValue.setQuantity(resultSet.getDouble("actual_quantity"));
+                    stockValue.setUnit(Unit.valueOf(resultSet.getString("unit")));
+                    return stockValue;
+                }
             }
+            throw new RuntimeException("Ingredient not found " + ingredientId);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private void attachOrders(Connection conn, Integer orderId, List<DishOrder> dishOrders)
@@ -100,7 +131,7 @@ public class DataRetriever {
                 """;
 
         try (PreparedStatement ps = conn.prepareStatement(attachSql)) {
-        int nextSerialValue = getNextSerialValue(conn, "dish_order", "id");
+            int nextSerialValue = getNextSerialValue(conn, "dish_order", "id");
             for (DishOrder dishOrder : dishOrders) {
                 ps.setInt(1, nextSerialValue);
                 ps.setInt(2, orderId);
