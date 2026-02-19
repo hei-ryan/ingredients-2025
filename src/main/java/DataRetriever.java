@@ -1,3 +1,5 @@
+import org.postgresql.util.PSQLException;
+
 import javax.swing.*;
 import java.sql.*;
 import java.time.Instant;
@@ -44,7 +46,7 @@ public class DataRetriever {
         Connection connection = dbConnection.getConnection();
         try {
             PreparedStatement selectOrderSQL = connection.prepareStatement("""
-SELECT id, reference, creation_datetime from "order" where reference like ?
+SELECT id, reference, creation_datetime, status, type from "order" where reference like ?
 """);
             selectOrderSQL.setString(1, reference);
             ResultSet rs = selectOrderSQL.executeQuery();
@@ -53,6 +55,8 @@ SELECT id, reference, creation_datetime from "order" where reference like ?
                 order.setId(rs.getInt("id"));
                 order.setReference(rs.getString("reference"));
                 order.setCreationDatetime(rs.getTimestamp("creation_datetime").toInstant());
+                order.setOrderStatus(rs.getString("status") == null ? null : OrderStatusEnum.valueOf(rs.getString("status")));
+                order.setType(rs.getString("type") == null ? null : OrderTypeEnum.valueOf(rs.getString("type")));
                 order.setDishOrderList(findDishOrderByIdOrder(rs.getInt("id")));
                 return order;
             }
@@ -90,76 +94,149 @@ SELECT id, reference, creation_datetime from "order" where reference like ?
         }
     }
 
-    public Order saveOrder(Order orderToSave) {
-            DBConnection dbConnection = new DBConnection();
-        Connection connection = dbConnection.getConnection();
-        Order existingOrder = null;
-        try {
-            existingOrder = findOrderByReference(orderToSave.getReference());
-        } catch (Exception e) {
-            if (e.getMessage().contains("Order not found with reference")) {
-                System.out.println("Skip check and process save");
-            }
-        }
-        if (existingOrder != null && existingOrder.getOrderStatus().equals(OrderStatusEnum.DELIVERED)) {
-            throw new RuntimeException("Order already delivered with reference " + orderToSave.getReference());
-        }
-        try{
-            connection.setAutoCommit(false);
-            PreparedStatement upsertOrderSQL = connection.prepareStatement("""
-INSERT INTO "order" (id, reference, creation_datetime, type, status)
-VALUES (?, ?, ?, ?::order_type, ?::order_status)
-ON CONFLICT (id) DO UPDATE
-SET type = EXCLUDED.type,
-    status = EXCLUDED.status
-RETURNING id;
-""");
-
-            try {
-                Integer orderId;
-                try {
-                   int nextSerialValue = getNextSerialValue(connection, "\"order\"", "id");
-                   if (orderToSave.getId() != null) {
-                       upsertOrderSQL.setInt(1, orderToSave.getId());
-                   } else {
-                       upsertOrderSQL.setNull(1, nextSerialValue);
-                   }
-                   upsertOrderSQL.setString(2, orderToSave.getReference());
-                   upsertOrderSQL.setTimestamp(3, Timestamp.from(orderToSave.getCreationDatetime()));
-                   if (orderToSave.getOrderStatus() == null){
-                       upsertOrderSQL.setNull(4, Types.VARCHAR);
-                   } else {
-                       upsertOrderSQL.setString(4, orderToSave.getOrderStatus().name());
-                   }
-                   if (orderToSave.getType() == null) {
-                       upsertOrderSQL.setNull(5, Types.VARCHAR);
-                   } else {
-                       upsertOrderSQL.setString(5, orderToSave.getType().name());
-                   }
-                   try (ResultSet rs = upsertOrderSQL.executeQuery()) {
-                       if (rs.next()) {
-                           orderId = rs.getInt(1);
-                       }else {
-                           orderId = orderToSave.getId() != null ? orderToSave.getId() : nextSerialValue;
-                       }
-                   }
-                } catch (SQLException e) {
-                    throw new RuntimeException(e);
-                }
-                List<DishOrder> dishOrderList = orderToSave.getDishOrderList();
-                detachOrders(connection, orderId);
-                attachOrders(connection, orderId, dishOrderList);
-
-                connection.commit();
-                return findOrderByReference(orderToSave.getReference());
-            } catch (SQLException e) {
-                throw new RuntimeException(e);
-            }
-
-        } catch (Exception e) {
-            throw new RuntimeException(e);
+//    public Order saveOrder(Order orderToSave) {
+//            DBConnection dbConnection = new DBConnection();
+//        Connection connection = dbConnection.getConnection();
+//        Order existingOrder = null;
+//        try {
+//            existingOrder = findOrderByReference(orderToSave.getReference());
+//            if (existingOrder != null && OrderStatusEnum.DELIVERED.equals(existingOrder.getOrderStatus()) ){
+//                throw new RuntimeException("Order already delivered with reference " + orderToSave.getReference());
+//
+//            }
+//        } catch (Exception e) {
+//            if (e.getMessage().contains("Order not found with reference")) {
+//                System.out.println("Skip check and process save");
+//            }
+//        }
+//            try {
+//                connection.setAutoCommit(false);
+//            PreparedStatement upsertOrderSQL = connection.prepareStatement("""
+//INSERT INTO "order" (id, reference, creation_datetime, type, status)
+//VALUES (?, ?, ?, ?::order_type, ?::order_status)
+//ON CONFLICT (id) DO UPDATE
+//SET type = EXCLUDED.type,
+//    status = EXCLUDED.status
+//RETURNING id;
+//""");
+//
+//            try {
+//                Integer orderId;
+//                try {
+//                   int nextSerialValue = getNextSerialValue(connection, "\"order\"", "id");
+//                   if (orderToSave.getId() != null) {
+//                       upsertOrderSQL.setInt(1, orderToSave.getId());
+//                   } else {
+//                       upsertOrderSQL.setNull(1, nextSerialValue);
+//                   }
+//                   upsertOrderSQL.setString(2, orderToSave.getReference());
+//                   upsertOrderSQL.setTimestamp(3, Timestamp.from(orderToSave.getCreationDatetime()));
+//                    if (orderToSave.getType() == null) {
+//                        upsertOrderSQL.setNull(4, Types.VARCHAR);
+//                    } else {
+//                        upsertOrderSQL.setString(4, orderToSave.getType().name());
+//                    }
+//                   if (orderToSave.getOrderStatus() == null){
+//                       upsertOrderSQL.setNull(5, Types.VARCHAR);
+//                   } else {
+//                       upsertOrderSQL.setString(5, orderToSave.getOrderStatus().name());
+//
+//                   }
+//
+//                   try (ResultSet rs = upsertOrderSQL.executeQuery()) {
+//                       if (rs.next()) {
+//                           orderId = rs.getInt(1);
+//                       }else {
+//                           orderId = orderToSave.getId() != null ? orderToSave.getId() : nextSerialValue;
+//                       }
+//                   }
+//                } catch (SQLException e) {
+//                    throw new RuntimeException(e);
+//                }
+//                List<DishOrder> dishOrderList = orderToSave.getDishOrderList();
+//                detachOrders(connection, orderId);
+//                attachOrders(connection, orderId, dishOrderList);
+//
+//                connection.commit();
+//                return findOrderByReference(orderToSave.getReference());
+//            } catch (SQLException e) {
+//                throw new RuntimeException(e);
+//            }
+//
+//            } catch (SQLException e) {
+//                throw new RuntimeException(e);
+//            }
+//
+//    }
+Order saveOrder(Order order) {
+    Order existingOrder = null;
+    try {
+        existingOrder = findOrderByReference(order.getReference());
+    } catch (RuntimeException e) {
+        if (e.getMessage().contains("Order not found with reference")) {
+            System.out.println("Skip check and process save");
         }
     }
+    if (existingOrder != null && existingOrder.getOrderStatus().equals(OrderStatusEnum.DELIVERED)) {
+        throw new RuntimeException("Order already delivered with reference " + order.getReference());
+    }
+    String upsertOrderSql = """
+                    INSERT INTO "order" (id, reference, creation_datetime, status, type)
+                    VALUES (?, ?, ?, ?::order_status, ?::order_type)
+                    ON CONFLICT (id) DO UPDATE
+                    SET status = EXCLUDED.status,
+                        type = EXCLUDED.type
+                    RETURNING id
+                """;
+
+    //TODO : bug on expected return ID when already exists
+
+    try (Connection conn = new DBConnection().getConnection()) {
+        conn.setAutoCommit(false);
+        Integer orderId;
+        try (PreparedStatement ps = conn.prepareStatement(upsertOrderSql)) {
+            int nextSerialValue = getNextSerialValue(conn, "\"order\"", "id");
+            if (order.getId() != null) {
+                ps.setInt(1, order.getId());
+            } else {
+                ps.setInt(1, nextSerialValue);
+            }
+            ps.setString(2, order.getReference());
+            ps.setTimestamp(3, Timestamp.from(order.getCreationDatetime()));
+            if (order.getOrderStatus() == null) {
+                ps.setNull(4, Types.VARCHAR);
+            } else {
+                ps.setString(4, order.getOrderStatus().name());
+            }
+            if (order.getType() == null) {
+                ps.setNull(5, Types.VARCHAR);
+            } else {
+                ps.setString(5, order.getType().name());
+            }
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    orderId = rs.getInt(1);
+                } else {
+                    orderId = order.getId() != null ? order.getId() : nextSerialValue;
+                }
+            }
+        }
+        List<DishOrder> dishOrderList = order.getDishOrderList();
+        detachOrders(conn, orderId);
+        attachOrders(conn, orderId, dishOrderList);
+
+        conn.commit();
+        return findOrderByReference(order.getReference());
+    } catch (PSQLException e) {
+        if (e.getMessage().contains("duplicate key value violates unique constraint \"order_reference_unique\"")) {
+            throw new RuntimeException("Order already exists with reference " + order.getReference());
+        } else {
+            throw new RuntimeException(e);
+        }
+    } catch (SQLException e) {
+        throw new RuntimeException(e);
+    }
+}
 
     private void attachOrders(Connection connection, Integer orderId, List<DishOrder> dishOrders) throws SQLException {{
                 if (dishOrders == null || dishOrders.isEmpty()) {

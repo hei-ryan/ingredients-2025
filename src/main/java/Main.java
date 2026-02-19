@@ -1,3 +1,4 @@
+import java.sql.SQLException;
 import java.time.Instant;
 import java.util.List;
 
@@ -94,11 +95,12 @@ public class Main {
 //        System.out.println(dataRetriever.findOrderByReference("ORD00001"));
 //
         DataRetriever dataRetriever = new DataRetriever();
-        Order o = dataRetriever.findOrderByReference("ORD102");
-        o.setType(OrderTypeEnum.TAKE_AWAY);
+        Order o = dataRetriever.findOrderByReference("ORD100");
+        o.setType(OrderTypeEnum.EAT_IN);
         o.setOrderStatus(OrderStatusEnum.READY);
-//        dataRetriever.saveOrder(o);
-//        System.out.println("successfully saved order" + );
-        System.out.println(o.getOrderStatus());
+        dataRetriever.saveOrder(o);
+
+        System.out.println("successfully saved order");
+//        System.out.println(o.getOrderStatus());
     }
 }
