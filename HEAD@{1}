@@ -1,0 +1,16 @@
+[33m50e2a22[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m HEAD@{0}: reset: moving to HEAD~1
+[33m4221fac[m HEAD@{1}: commit: fix saveOrder
+[33m50e2a22[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m HEAD@{2}: commit: should fix
+[33md90a590[m HEAD@{3}: commit: final push exam2
+[33m2e67709[m HEAD@{4}: commit: final push exam2
+[33m4d4be66[m HEAD@{5}: commit: push final exam
+[33m177b4db[m HEAD@{6}: commit: final push before the exam
+[33m9c01434[m HEAD@{7}: commit: push order
+[33m70d1196[m HEAD@{8}: commit (amend): fix bug
+[33mfddd268[m HEAD@{9}: commit: fig bug
+[33m29aa285[m HEAD@{10}: commit: fix completly TD3 and push TD4 with some bug
+[33mb638ece[m HEAD@{11}: commit: fix data normalisation
+[33m15d14ec[m HEAD@{12}: commit: Fix getDishCost() and getGrossMargin()
+[33m19aab1d[m HEAD@{13}: commit: Amend SaveDish
+[33m5135601[m HEAD@{14}: commit: Add new_schema.sql and Amend methods
+[33m5bd5c89[m HEAD@{15}: clone: from https://github.com/Amboara-PRO/ingredients-2025-STD24067.git

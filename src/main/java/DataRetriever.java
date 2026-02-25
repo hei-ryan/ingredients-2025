@@ -3,12 +3,176 @@ import org.postgresql.util.PSQLException;
 import javax.swing.*;
 import java.sql.*;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
 public class DataRetriever {
+    StockValue getStockValueAt(Instant t, Integer ingredientIdentifier) {
+        DBConnection dbConnection = new DBConnection();
+        String sql = """
+                SELECT
+                    sm.unit,
+                    COALESCE(SUM(
+                        CASE
+                            WHEN sm.type = 'IN'  THEN sm.quantity
+                            WHEN sm.type = 'OUT' THEN -sm.quantity
+                            END
+                            ), 0) AS actual_quantity
+                FROM ingredient i
+                JOIN stockmovement sm
+                    ON sm.id_ingredient = i.id
+                    AND sm.creation_datetime <= ?
+                WHERE i.id = ?
+                GROUP BY sm.unit;
+                """;
+        StockValue findedStockValue = null;
+        try (
+                Connection connection = dbConnection.getConnection();
+                PreparedStatement ps = connection.prepareStatement(sql)
+        ) {
+            ps.setTimestamp(1, Timestamp.from(t));
+            ps.setInt(2, ingredientIdentifier);
+
+            try (ResultSet resultSet = ps.executeQuery()){
+                while (resultSet.next()) {
+                    findedStockValue = new StockValue();
+                    findedStockValue.setUnit(UnitEnum.valueOf(resultSet.getString("unit")));
+                    findedStockValue.setQuantity(resultSet.getDouble("actual_quantity"));
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Error executing query", e);
+        }
+        return findedStockValue;
+    }
+
+    Double getDishCost(Integer dishId) {
+        DBConnection dbConnection = new DBConnection();
+        String sql = """
+                SELECT
+                    SUM(di.required_quantity * i.price) AS dish_cost
+                FROM dishingredient di
+                JOIN ingredient i ON i.id = di.id_ingredient
+                WHERE di.id_dish = ?;
+                """;
+        Double result = 0.0;
+
+        try (
+                Connection connection = dbConnection.getConnection();
+                PreparedStatement ps = connection.prepareStatement(sql)
+        ){
+            ps.setInt(1, dishId);
+
+            try (ResultSet resultSet = ps.executeQuery()){
+                while (resultSet.next()){
+                    result = resultSet.getDouble("dish_cost");
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Error executing query", e);
+        }
+        return result;
+    }
+
+    Double getGrossMargin (Integer dishId) {
+        DBConnection dbConnection = new DBConnection();
+        String sql = """
+                SELECT
+                    (d.selling_price - SUM(di.required_quantity * i.price)) AS dish_cross_margin
+                FROM dishingredient di
+                JOIN ingredient i ON i.id = di.id_ingredient
+                JOIN dish d on d.id = di.id_dish
+                WHERE d.id = ? 
+                GROUP BY d.selling_price;
+                """;
+        Double result = 0.0;
+
+        try (
+                Connection connection = dbConnection.getConnection();
+                PreparedStatement ps = connection.prepareStatement(sql)
+        ) {
+            ps.setInt(1, dishId);
+
+            try (ResultSet resultSet = ps.executeQuery()) {
+                while(resultSet.next()) {
+                    result = resultSet.getDouble("dish_cross_margin");
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Error executing query", e);
+        }
+        return result;
+    }
+
+    public List<StockStat> getIngredientsStatsByPeriod(
+            Periodicity periodicity,
+            LocalDateTime intervalleMin,
+            LocalDateTime intervalleMax
+    ) {
+
+        DBConnection dbConnection = new DBConnection();
+
+        String period = periodicity.name().toLowerCase();
+
+        String sql = """
+            SELECT
+                i.name,
+                DATE_TRUNC('""" + period + """', sm.creation_datetime) AS periodDate,
+                SUM(
+                    CASE
+                        WHEN sm.type = 'IN' THEN sm.quantity
+                        ELSE -sm.quantity
+                    END
+                ) OVER (
+                    PARTITION BY i.id
+                    ORDER BY DATE_TRUNC('""" + period + """', sm.creation_datetime)
+                ) AS stock_at_period,
+                sm.unit
+            FROM stock_movement sm
+            JOIN ingredient i
+                ON i.id = sm.id_ingredient
+            WHERE sm.creation_datetime BETWEEN ?
+                                           AND ?
+            ORDER BY i.id, periodDate
+            """;
+
+        List<StockStat> findedList = new ArrayList<>();
+
+        try (
+                Connection connection = dbConnection.getConnection();
+                PreparedStatement ps = connection.prepareStatement(sql)
+        ) {
+
+            ps.setTimestamp(1, Timestamp.valueOf(intervalleMin));
+            ps.setTimestamp(2, Timestamp.valueOf(intervalleMax));
+
+            try (ResultSet resultSet = ps.executeQuery()) {
+
+                while (resultSet.next()) {
+
+                    findedList.add(new StockStat(
+                            resultSet.getString("name"),
+                            resultSet.getTimestamp("periodDate")
+                                    .toLocalDateTime()
+                                    .toLocalDate(),
+                            new StockValue(
+                                    resultSet.getDouble("stock_at_period"),
+                                    UnitEnum.valueOf(resultSet.getString("unit"))
+                            )
+                    ));
+                }
+            }
+
+        } catch (SQLException e) {
+            throw new RuntimeException("Error executing query", e);
+        }
+
+        return findedList;
+    }
+
         public Dish findDishById(Integer id) {
             DBConnection dbConnection = new DBConnection();
             Connection connection = dbConnection.getConnection();
@@ -94,80 +258,6 @@ SELECT id, reference, creation_datetime, status, type from "order" where referen
         }
     }
 
-//    public Order saveOrder(Order orderToSave) {
-//            DBConnection dbConnection = new DBConnection();
-//        Connection connection = dbConnection.getConnection();
-//        Order existingOrder = null;
-//        try {
-//            existingOrder = findOrderByReference(orderToSave.getReference());
-//            if (existingOrder != null && OrderStatusEnum.DELIVERED.equals(existingOrder.getOrderStatus()) ){
-//                throw new RuntimeException("Order already delivered with reference " + orderToSave.getReference());
-//
-//            }
-//        } catch (Exception e) {
-//            if (e.getMessage().contains("Order not found with reference")) {
-//                System.out.println("Skip check and process save");
-//            }
-//        }
-//            try {
-//                connection.setAutoCommit(false);
-//            PreparedStatement upsertOrderSQL = connection.prepareStatement("""
-//INSERT INTO "order" (id, reference, creation_datetime, type, status)
-//VALUES (?, ?, ?, ?::order_type, ?::order_status)
-//ON CONFLICT (id) DO UPDATE
-//SET type = EXCLUDED.type,
-//    status = EXCLUDED.status
-//RETURNING id;
-//""");
-//
-//            try {
-//                Integer orderId;
-//                try {
-//                   int nextSerialValue = getNextSerialValue(connection, "\"order\"", "id");
-//                   if (orderToSave.getId() != null) {
-//                       upsertOrderSQL.setInt(1, orderToSave.getId());
-//                   } else {
-//                       upsertOrderSQL.setNull(1, nextSerialValue);
-//                   }
-//                   upsertOrderSQL.setString(2, orderToSave.getReference());
-//                   upsertOrderSQL.setTimestamp(3, Timestamp.from(orderToSave.getCreationDatetime()));
-//                    if (orderToSave.getType() == null) {
-//                        upsertOrderSQL.setNull(4, Types.VARCHAR);
-//                    } else {
-//                        upsertOrderSQL.setString(4, orderToSave.getType().name());
-//                    }
-//                   if (orderToSave.getOrderStatus() == null){
-//                       upsertOrderSQL.setNull(5, Types.VARCHAR);
-//                   } else {
-//                       upsertOrderSQL.setString(5, orderToSave.getOrderStatus().name());
-//
-//                   }
-//
-//                   try (ResultSet rs = upsertOrderSQL.executeQuery()) {
-//                       if (rs.next()) {
-//                           orderId = rs.getInt(1);
-//                       }else {
-//                           orderId = orderToSave.getId() != null ? orderToSave.getId() : nextSerialValue;
-//                       }
-//                   }
-//                } catch (SQLException e) {
-//                    throw new RuntimeException(e);
-//                }
-//                List<DishOrder> dishOrderList = orderToSave.getDishOrderList();
-//                detachOrders(connection, orderId);
-//                attachOrders(connection, orderId, dishOrderList);
-//
-//                connection.commit();
-//                return findOrderByReference(orderToSave.getReference());
-//            } catch (SQLException e) {
-//                throw new RuntimeException(e);
-//            }
-//
-//            } catch (SQLException e) {
-//                throw new RuntimeException(e);
-//            }
-//
-//    }
 Order saveOrder(Order order) {
     Order existingOrder = null;
     try {
