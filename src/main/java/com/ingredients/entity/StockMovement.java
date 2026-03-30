@@ -1,4 +1,5 @@
-import java.sql.Timestamp;
+package com.ingredients.entity;
+
 import java.time.Instant;
 import java.util.Objects;
 
@@ -65,7 +66,7 @@ public class StockMovement {
 
     @Override
     public String toString() {
-        return "StockMovement{" +
+        return "com.ingredients.entity.StockMovement{" +
                 "id=" + id +
                 ", value=" + value +
                 ", type=" + type +

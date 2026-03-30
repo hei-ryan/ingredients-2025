@@ -1,3 +1,5 @@
+package com.ingredients.entity;
+
 import java.util.Objects;
 
 public class StockValue {
@@ -43,7 +45,7 @@ public class StockValue {
 
     @Override
     public String toString() {
-        return "StockValue{" +
+        return "com.ingredients.entity.StockValue{" +
                 "quantity=" + quantity +
                 ", unit=" + unit +
                 '}';

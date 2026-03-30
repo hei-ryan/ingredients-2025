@@ -1,3 +1,5 @@
+package com.ingredients.entity;
+
 import java.time.LocalDate;
 
 public class StockStat {
@@ -7,7 +9,7 @@ public class StockStat {
 
     @Override
     public String toString() {
-        return "StockStat{" +
+        return "com.ingredients.entity.StockStat{" +
                 "ingredientName=" + ingredientName +
                 ", periodDate=" + periodDate +
                 ", stockValue=" + stockValue +

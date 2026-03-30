@@ -1,4 +1,5 @@
-import java.util.List;
+package com.ingredients.entity;
+
 import java.util.Objects;
 
 public class DishIngredient {
@@ -74,7 +75,7 @@ public class DishIngredient {
 
     @Override
     public String toString() {
-        return "DishIngredient{" +
+        return "com.ingredients.entity.DishIngredient{" +
                 "ingredient=" + ingredient.getName() +
                 ", quantity_required=" + quantity_required +
                 ", unit=" + unit +

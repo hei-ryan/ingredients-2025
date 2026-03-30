@@ -1,3 +1,5 @@
+package com.ingredients.entity;
+
 import java.util.Objects;
 
 public class DishOrder {
@@ -63,7 +65,7 @@ public class DishOrder {
 
     @Override
     public String toString() {
-        return "DishOrder{" +
+        return "com.ingredients.entity.DishOrder{" +
                 "id=" + id +
                 ", dish=" + dish +
                 ", order=" + order +

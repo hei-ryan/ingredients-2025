@@ -1,3 +1,5 @@
+package com.ingredients.entity;
+
 import java.util.List;
 import java.util.Objects;
 
@@ -26,7 +28,7 @@ public class Dish {
                 throw new RuntimeException("Quantity is null for ingredient " + di.getIngredient().getId());
             }
             if (di.getIngredient() == null || di.getIngredient().getPrice() == null) {
-                throw new RuntimeException("Ingredient price is null");
+                throw new RuntimeException("com.ingredients.entity.Ingredient price is null");
             }
 
             total += di.getIngredient().getPrice() * di.getQuantity_required();
@@ -44,7 +46,7 @@ public class Dish {
     public Dish() {
     }
 
-    public Dish(Integer id,Double price, String name, DishTypeEnum dishType, List<DishIngredient> dishIngredients) {
+    public Dish(Integer id, Double price, String name, DishTypeEnum dishType, List<DishIngredient> dishIngredients) {
         this.id = id;
         this.price = price;
         this.name = name;
@@ -106,7 +108,7 @@ public class Dish {
 
     @Override
     public String toString() {
-        return "Dish{" +
+        return "com.ingredients.entity.Dish{" +
                 "id=" + id +
                 ", price=" + price +
                 ", name='" + name + '\'' +
